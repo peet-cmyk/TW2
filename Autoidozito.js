@@ -127,7 +127,6 @@ const now = new Date();
 now.setMinutes(now.getMinutes() + 1);
 console.log("🕓 Current time + 1 min:", now.toLocaleString());
 
-// Step 2: Locate 'Időtartam:' <tr>
 const durationRow = Array.from(document.querySelectorAll("table.vis tr"))
     .find(tr => tr.children[0]?.textContent.trim().includes("Időtartam:"));
 
@@ -136,7 +135,6 @@ if (!durationRow) {
     throw new Error("Duration row missing");
 }
 
-// Step 3: Extract and clean the time string
 const durationText = durationRow.children[1]?.textContent.trim();
 console.log("⏱️ Raw duration text:", durationText);
 
@@ -150,11 +148,9 @@ const [______, hh, mm, ss] = timeMatch;
 const durationMs = (+hh * 3600 + +mm * 60 + +ss) * 1000;
 console.log(`⏱️ Parsed duration → ${hh}h ${mm}m ${ss}s = ${durationMs}ms`);
 
-// Step 4: Add duration to now
 const arrival = new Date(now.getTime() + durationMs);
 console.log("🚚 Calculated arrival time:", arrival.toLocaleString());
 
-// Step 5: Format as BeIdo
 function formatDateToPromptStyle(d) {
     const pad = (n, len = 2) => String(n).padStart(len, '0');
     return `${d.getFullYear()} ${pad(d.getMonth() + 1)} ${pad(d.getDate())} ${pad(d.getHours())} ${pad(d.getMinutes())} ${pad(d.getSeconds())} ${pad(d.getMilliseconds(), 3)}`;
