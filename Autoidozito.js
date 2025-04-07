@@ -124,8 +124,8 @@ if (TIPUS=="B") { /*Csak BACK számításakor kell majd*/
 odaerkezes.setMilliseconds(0);
 
 const now = new Date();
-now.setMinutes(now.getMinutes() + 1);
-console.log("🕓 Current time + 1 min:", now.toLocaleString());
+now.setSeconds(now.getSeconds() + 20);
+console.log("🕓 Current time + 20 sec:", now.toLocaleString());
 
 const durationRow = Array.from(document.querySelectorAll("table.vis tr"))
     .find(tr => tr.children[0]?.textContent.trim().includes("Időtartam:"));
