@@ -892,9 +892,9 @@ if (localStorage.getItem("settingsWHBalancerSophie") != null) {
             "needsMorePercentage": 0.85,
             "dynamicFillTiers": {
                 "50000": 0.8,
-                "100000": 0.85,
-                "200000": 0.9,
-                "999999": 0.95
+                "100000": 0.6,
+                "200000": 0.2,
+                "400000": 0.1
             }
         };
     }
@@ -918,9 +918,9 @@ if (settings.needsMorePercentage < 0) settings.needsMorePercentage = 0.1;
 if (!settings.dynamicFillTiers) {
     settings.dynamicFillTiers = {
         "50000": 0.8,
-        "100000": 0.85,
-        "200000": 0.9,
-        "999999": 0.95
+        "100000": 0.6,
+        "200000": 0.2,
+        "400000": 0.1
     };
 }
 // if (settings.isMinting == true) {
