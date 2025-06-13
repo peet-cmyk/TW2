@@ -431,6 +431,7 @@ else {
             margin-left: 5px;
             }
             
+            
             .active:after {
             content: "-";
             }
@@ -874,8 +875,13 @@ if (localStorage.getItem("settingsWHBalancerSophie") != null) {
     settings.highFarm = parseInt(tempArray.highFarm);
     settings.builtOutPercentage = parseFloat(tempArray.builtOutPercentage);
     settings.needsMorePercentage = parseFloat(tempArray.needsMorePercentage);
-}
-else {
+    settings.dynamicFillTiers = tempArray.dynamicFillTiers || {
+        "50000": 0.8,
+        "100000": 0.85,
+        "200000": 0.9,
+        "999999": 0.95
+    };
+} else {
     if (typeof settings == 'undefined') {
         var settings = {
             "isMinting": false,
@@ -883,7 +889,13 @@ else {
             "highFarm": 23000,
             "lowPoints": 3000,
             "builtOutPercentage": 0.25,
-            "needsMorePercentage": 0.85
+            "needsMorePercentage": 0.85,
+            "dynamicFillTiers": {
+                "50000": 0.8,
+                "100000": 0.85,
+                "200000": 0.9,
+                "999999": 0.95
+            }
         };
     }
     localStorage.setItem("settingsWHBalancerSophie", JSON.stringify(settings));
@@ -903,7 +915,14 @@ if (settings.builtOutPercentage > 1) settings.builtOutPercentage = 0.95;
 if (settings.needsMorePercentage > 1) settings.needsMorePercentage = 0.95;
 if (settings.builtOutPercentage < 0) settings.builtOutPercentage = 0.1;
 if (settings.needsMorePercentage < 0) settings.needsMorePercentage = 0.1;
-
+if (!settings.dynamicFillTiers) {
+    settings.dynamicFillTiers = {
+        "50000": 0.8,
+        "100000": 0.85,
+        "200000": 0.9,
+        "999999": 0.95
+    };
+}
 // if (settings.isMinting == true) {
 //     settings = {
 //         "isMinting": true,
@@ -1360,10 +1379,24 @@ function displayEverything() {
 
                         //check if village is small and needs more res
                         if (villagesData[v].points < settings.lowPoints) {
-                            console.log(villagesData[v].name + " (" + villagesData[v].points + ")" + " needs help growing, setting required resources to " + settings.needsMorePercentage * 100 + "% of WH capacity");
-                            tempWood = -Math.round((villagesData[v].warehouseCapacity * settings.needsMorePercentage) - parseInt(villagesData[v].wood) - incomingWood);
-                            tempStone = -Math.round((villagesData[v].warehouseCapacity * settings.needsMorePercentage) - parseInt(villagesData[v].stone) - incomingStone);
-                            tempIron = -Math.round((villagesData[v].warehouseCapacity * settings.needsMorePercentage) - parseInt(villagesData[v].iron) - incomingIron);
+                            let wh = villagesData[v].warehouseCapacity;
+                            let dynamicFill = 0.85;
+                            const thresholds = Object.entries(settings.dynamicFillTiers)
+                                .map(([cap, pct]) => [parseInt(cap), pct])
+                                .sort((a, b) => a[0] - b[0]);
+
+                            for (const [cap, pct] of thresholds) {
+                                if (wh <= cap) {
+                                    dynamicFill = pct;
+                                    break;
+                                }
+                            }
+
+                            console.log(`${villagesData[v].name} (${villagesData[v].points}) needs help → WH=${wh}, target fill=${dynamicFill}`);
+
+                            tempWood = -Math.round((wh * dynamicFill) - parseInt(villagesData[v].wood) - incomingWood);
+                            tempStone = -Math.round((wh * dynamicFill) - parseInt(villagesData[v].stone) - incomingStone);
+                            tempIron = -Math.round((wh * dynamicFill) - parseInt(villagesData[v].iron) - incomingIron);
                         }
 
                         if (incomingWood + parseInt(villagesData[v].wood) > villagesData[v].warehouseCapacity) {
@@ -1637,6 +1670,12 @@ function displayEverything() {
                             <label for="needsMorePercentage">WH capacity priority village: </label></td><td style="padding: 6px;"><input type="range" min="0" max="1" step="0.01" value="${settings.needsMorePercentage}" class="slider" name="needsMorePercentage" oninput="sliderChange('needsMorePercentage',this.value)">
                             <output id="needsMorePercentage"></output></td></tr>
                             <tr>
+                            <tr><td colspan="2">
+                            <fieldset style="border:1px solid #aaa;padding:5px">
+                                <legend>Dynamic WH Fill % (lowPoints only)</legend>
+                                <div id="dynamicFillConfig" style="display:flex;flex-direction:column;gap:4px;"></div>
+                            </fieldset>
+                        </td></tr>
                             <td style="padding: 6px;">
                             <input type="button" class="btn evt-confirm-btn btn-confirm-yes" value="Save" onclick="saveSettings();"/></td></tr>
                             <td colspan="2" style="padding: 6px;">
@@ -1671,6 +1710,8 @@ function displayEverything() {
                     if (is_mobile == true) {
                         $("#mobile_header").eq(0).prepend(htmlCode);
                     }
+                    renderDynamicFillUI();
+
                     //making the table
                     $("input[name='isMinting']").attr("checked", settings.isMinting);
                     $("#lowPoints").val(settings.lowPoints);
@@ -1679,6 +1720,7 @@ function displayEverything() {
                     $("#builtOutPercentage").val(settings.builtOutPercentage);
                     $("#needsMorePercentage").val(settings.needsMorePercentage);
                     makeThingsCollapsible();
+
                     createList();
                 })
 
@@ -1914,6 +1956,21 @@ function makeThingsCollapsible() {
         });
     }
 }
+function renderDynamicFillUI() {
+    const container = document.getElementById('dynamicFillConfig');
+    if (!container) return; // avoid null error
+
+    container.innerHTML = '';
+    Object.entries(settings.dynamicFillTiers).forEach(([cap, pct]) => {
+        const row = document.createElement('div');
+        row.innerHTML = `
+            <label>
+                ≤ <input type="number" class="wh-tier" data-tier="${cap}" value="${cap}" style="width:80px" />
+                → <input type="number" step="0.01" min="0" max="1" class="wh-fill" value="${pct}" style="width:60px" />
+            </label>`;
+        container.appendChild(row);
+    });
+}
 
 function saveSettings() {
 
@@ -1934,6 +1991,15 @@ function saveSettings() {
         settings.builtOutPercentage = parseFloat(tempArray[3].value);
         settings.needsMorePercentage = parseFloat(tempArray[4].value);
     }
+    const dynamicFillTiers = {};
+    document.querySelectorAll('#dynamicFillConfig .wh-tier').forEach((tierInput, i) => {
+        const cap = parseInt(tierInput.value);
+        const fill = parseFloat(document.querySelectorAll('#dynamicFillConfig .wh-fill')[i].value);
+        if (!isNaN(cap) && !isNaN(fill)) {
+            dynamicFillTiers[cap] = fill;
+        }
+    });
+    settings.dynamicFillTiers = dynamicFillTiers;
     localStorage.setItem("settingsWHBalancerSophie", JSON.stringify(settings));
     $(".flex-container").remove();
     $("div[id*='restart']").remove();
