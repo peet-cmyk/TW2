@@ -877,9 +877,9 @@ if (localStorage.getItem("settingsWHBalancerSophie") != null) {
     settings.needsMorePercentage = parseFloat(tempArray.needsMorePercentage);
     settings.dynamicFillTiers = tempArray.dynamicFillTiers || {
         "50000": 0.8,
-        "100000": 0.85,
-        "200000": 0.9,
-        "999999": 0.95
+        "100000": 0.6,
+        "200000": 0.3,
+        "999999": 0.1
     };
 } else {
     if (typeof settings == 'undefined') {
@@ -893,8 +893,8 @@ if (localStorage.getItem("settingsWHBalancerSophie") != null) {
             "dynamicFillTiers": {
                 "50000": 0.8,
                 "100000": 0.6,
-                "200000": 0.2,
-                "400000": 0.1
+                "200000": 0.3,
+                "999999": 0.1
             }
         };
     }
@@ -918,9 +918,9 @@ if (settings.needsMorePercentage < 0) settings.needsMorePercentage = 0.1;
 if (!settings.dynamicFillTiers) {
     settings.dynamicFillTiers = {
         "50000": 0.8,
-        "100000": 0.6,
-        "200000": 0.2,
-        "400000": 0.1
+        "100000": 0.85,
+        "200000": 0.9,
+        "999999": 0.95
     };
 }
 // if (settings.isMinting == true) {
@@ -1378,9 +1378,15 @@ function displayEverything() {
                         }
 
                         //check if village is small and needs more res
+                        let wasPrioritized = false;
+                        let dynamicFill = null;
+
                         if (villagesData[v].points < settings.lowPoints) {
+                            wasPrioritized = true;
+
                             let wh = villagesData[v].warehouseCapacity;
                             let dynamicFill = 0.85;
+
                             const thresholds = Object.entries(settings.dynamicFillTiers)
                                 .map(([cap, pct]) => [parseInt(cap), pct])
                                 .sort((a, b) => a[0] - b[0]);
@@ -1392,22 +1398,22 @@ function displayEverything() {
                                 }
                             }
 
-                            console.log(`${villagesData[v].name} (${villagesData[v].points}) needs help → WH=${wh}, target fill=${dynamicFill}`);
+                            console.log(`${villagesData[v].name} (${villagesData[v].points}) [lowPoints] → WH=${wh}, fill=${dynamicFill}`);
 
                             tempWood = -Math.round((wh * dynamicFill) - parseInt(villagesData[v].wood) - incomingWood);
                             tempStone = -Math.round((wh * dynamicFill) - parseInt(villagesData[v].stone) - incomingStone);
                             tempIron = -Math.round((wh * dynamicFill) - parseInt(villagesData[v].iron) - incomingIron);
                         }
 
-                        if (incomingWood + parseInt(villagesData[v].wood) > villagesData[v].warehouseCapacity) {
+                        if (!wasPrioritized && incomingWood + parseInt(villagesData[v].wood) > villagesData[v].warehouseCapacity) {
                             console.log("Too much wood incoming in " + villagesData[v].name);
                             tempWood = -(Math.round((villagesData[v].warehouseCapacity * settings.needsMorePercentage) - incomingWood - parseInt(villagesData[v].wood)));
                         }
-                        if (incomingStone + parseInt(villagesData[v].stone) > villagesData[v].warehouseCapacity) {
+                        if (!wasPrioritized &&incomingStone + parseInt(villagesData[v].stone) > villagesData[v].warehouseCapacity) {
                             console.log("Too much clay incoming in " + villagesData[v].name);
                             tempStone = -(Math.round((villagesData[v].warehouseCapacity * settings.needsMorePercentage) - incomingStone - parseInt(villagesData[v].stone)));
                         }
-                        if (incomingIron + parseInt(villagesData[v].iron) > villagesData[v].warehouseCapacity) {
+                        if (!wasPrioritized && incomingIron + parseInt(villagesData[v].iron) > villagesData[v].warehouseCapacity) {
                             console.log("Too much iron incoming in " + villagesData[v].name);
                             tempIron = -(Math.round((villagesData[v].warehouseCapacity * settings.needsMorePercentage) - incomingIron - parseInt(villagesData[v].iron)));
                         }
@@ -1428,8 +1434,12 @@ function displayEverything() {
 
 
 
-                        console.log("Village: " + villagesData[v].name + '\n' + "                    Max final capacity: " + villagesData[v].warehouseCapacity * settings.needsMorePercentage + '\n' + "                    Warehouse capacity: " + villagesData[v].warehouseCapacity + '\n' + "                    Wood: " + parseInt(villagesData[v].wood) + '\n' + "                    Clay: " + parseInt(villagesData[v].stone) + '\n' + "                    Iron: " + parseInt(villagesData[v].iron));
-                        console.log("Woodadjustement: " + tempWood + ", clayadjustement: " + tempStone + ", ironadjustement: " + tempIron);
+                        console.log(`📦 Village: ${villagesData[v].name}
+                        → Warehouse capacity: ${villagesData[v].warehouseCapacity}
+                        → Max target fill: ${wasPrioritized ? 'dynamic' : 'static'} = ${wasPrioritized ? `${Math.round(villagesData[v].warehouseCapacity * dynamicFill)} (${dynamicFill * 100}%)` : `${Math.round(villagesData[v].warehouseCapacity * settings.needsMorePercentage)} (${settings.needsMorePercentage * 100}%)`}
+                        → Current stock: Wood=${parseInt(villagesData[v].wood)}, Clay=${parseInt(villagesData[v].stone)}, Iron=${parseInt(villagesData[v].iron)}
+                        → Incoming: Wood=${incomingWood}, Clay=${incomingStone}, Iron=${incomingIron}
+                        → Final adjustment: Wood=${tempWood}, Clay=${tempStone}, Iron=${tempIron}`);
 
 
                         //check wood
